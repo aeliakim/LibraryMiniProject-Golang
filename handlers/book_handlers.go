@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"strconv"
 )
 
 func GetBooks(w http.ResponseWriter, r *http.Request) {
@@ -26,32 +27,39 @@ func GetBooks(w http.ResponseWriter, r *http.Request) {
 }
 
 func AddBook(w http.ResponseWriter, r *http.Request) {
-	var newBook models.Book
-	if err := json.NewDecoder(r.Body).Decode(&newBook); err != nil {
-		http.Error(w, "Failed to parse request body", http.StatusBadRequest)
+	var book models.Book
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	// Load existing books
-	var books []models.Book
-	filePath, err := os.Open("data/books.json")
-	if err == nil {
-		defer filePath.Close()
-		json.NewDecoder(filePath).Decode(&books)
-	}
-
-	// Assign a new ID to the new book
-	newBook.ID = len(books) + 1
-	books = append(books, newBook)
-
-	// Save back to JSON file
-	filePath, err = os.Create("data/books.json")
+	book.Title = r.FormValue("title")
+	book.Author = r.FormValue("author")
+	book.ISBN = r.FormValue("isbn")
+	year, err := strconv.Atoi(r.FormValue("year"))
 	if err != nil {
-		http.Error(w, "Failed to create books file", http.StatusInternalServerError)
+		http.Error(w, "Invalid year", http.StatusBadRequest)
 		return
 	}
-	defer filePath.Close()
+	book.Year = year
 
-	json.NewEncoder(filePath).Encode(books)
-	w.WriteHeader(http.StatusCreated)
+	// Read and update the books.json file
+	books := []models.Book{}
+	file, err := os.Open("data/books.json")
+	if err == nil {
+		defer file.Close()
+		json.NewDecoder(file).Decode(&books)
+	}
+
+	book.ID = len(books) + 1
+	books = append(books, book)
+
+	file, err = os.Create("data/books.json")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+
+	json.NewEncoder(file).Encode(books)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
