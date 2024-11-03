@@ -14,6 +14,7 @@ func main() {
 	r.HandleFunc("/", handlers.ServeHome).Methods("GET")
 	r.HandleFunc("/books", handlers.AddBook).Methods("POST")
 	r.HandleFunc("/books", handlers.GetBooks).Methods("GET")
+	r.HandleFunc("/books/{id}", handlers.DeleteBook).Methods("DELETE")
 
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
