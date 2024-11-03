@@ -29,41 +29,53 @@ func GetBooks(w http.ResponseWriter, r *http.Request) {
 }
 
 func AddBook(w http.ResponseWriter, r *http.Request) {
-	var book models.Book
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	book.Title = r.FormValue("title")
-	book.Author = r.FormValue("author")
-	book.ISBN = r.FormValue("isbn")
-	year, err := strconv.Atoi(r.FormValue("year"))
-	if err != nil {
-		http.Error(w, "Invalid year", http.StatusBadRequest)
-		return
-	}
-	book.Year = year
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
 
-	// Read and update the books.json file
+	// Parse JSON request body
+	var book models.Book
+	if err := json.NewDecoder(r.Body).Decode(&book); err != nil {
+		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Validate required fields
+	if book.Title == "" || book.Author == "" || book.ISBN == "" || book.Year == 0 {
+		http.Error(w, "All fields are required", http.StatusBadRequest)
+		return
+	}
+
+	// Read existing books
 	books := []models.Book{}
 	file, err := os.Open("data/books.json")
 	if err == nil {
 		defer file.Close()
-		json.NewDecoder(file).Decode(&books)
+		if err := json.NewDecoder(file).Decode(&books); err != nil {
+			http.Error(w, "Failed to read existing books", http.StatusInternalServerError)
+			return
+		}
 	}
 
+	// Assign new ID
 	book.ID = len(books) + 1
 	books = append(books, book)
 
+	// Write updated books back to file
 	file, err = os.Create("data/books.json")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to create books file", http.StatusInternalServerError)
 		return
 	}
 	defer file.Close()
 
-	json.NewEncoder(file).Encode(books)
+	if err := json.NewEncoder(file).Encode(books); err != nil {
+		http.Error(w, "Failed to save book", http.StatusInternalServerError)
+		return
+	}
+
+	// Return success response with the new book
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(book)
 }
 
 func DeleteBook(w http.ResponseWriter, r *http.Request) {
