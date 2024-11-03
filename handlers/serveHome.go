@@ -5,5 +5,5 @@ import (
 )
 
 func ServeHome(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "../templates/index.html")
+	http.ServeFile(w, r, "templates/index.html")
 }
